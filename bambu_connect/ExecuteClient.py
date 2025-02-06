@@ -24,18 +24,36 @@ class ExecuteClient:
         self.client.disconnect()
 
     def send_command(self, payload):
+        if isinstance(payload, dict):
+            payload = json.dumps(payload)
         self.client.loop_start()
         self.client.publish(f"device/{self.serial}/request", payload)
         self.client.loop_stop()
 
     def send_gcode(self, gcode):
-        payload = f'{{"print": {{"command": "gcode_line", "sequence_id": 2006, "param": "{gcode} \n"}}, "user_id":"1234567890"}}'
-        self.send_command(payload)
+        payload = {
+            "print": {
+                "command": "gcode_line",
+                "sequence_id": 2006,
+                "param": f"{gcode} \n"
+            },
+            "user_id": "1234567890"
+        }
+        payload_json = json.dumps(payload)
+        self.send_command(payload_json)
 
     # this dumps all the printer stats, for minor print updates the printer will send them automatically.
     def dump_info(self):
-        payload = f'{{"pushing": {{ "sequence_id": 1, "command": "pushall"}}, "user_id":"1234567890"}}'
-        self.send_command(payload)
+        payload = {
+            "pushing": {
+                "sequence_id": 1,
+                "command": "pushall"
+            },
+            "user_id": "1234567890"
+        }
+        payload_json = json.dumps(payload)
+        print(f"DEBUG: Sending info dump -> {payload_json}")  # Debug print
+        self.send_command(payload_json)
 
     # when using this, choose the send to printer option in bambu or cura slicer. Provide the file name (no path)
     def start_print(self, file):
