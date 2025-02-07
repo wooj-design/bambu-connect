@@ -7,6 +7,10 @@ from typing import Callable, Dict, Optional, Any
 
 
 class BambuClient:
+    """Main client interface for Bambu printer control.
+    
+    Provides unified access to camera, monitoring, execution and file operations.
+    """
     def __init__(self, hostname: str, access_code: str, serial: str):
         self.cameraClient = CameraClient(hostname, access_code)
         self.watchClient = WatchClient(hostname, access_code, serial)

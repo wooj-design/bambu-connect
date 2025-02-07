@@ -4,12 +4,32 @@ import os
 
 
 class FileClient:
+    """Client for managing files on Bambu printer via FTPS.
+    
+    Handles file listing and downloads using secure FTP connection.
+    """
     def __init__(self, hostname: str, access_code: str, serial: str):
+        """Initialize file client with connection details.
+        
+        Args:
+            hostname: Printer's IP address or hostname
+            access_code: Printer's access code for authentication
+            serial: Printer's serial number
+        """
         self.hostname = hostname
         self.access_code = access_code
         self.serial = serial
 
     def get_files(self, directory="/", extension=".3mf"):
+        """List files in printer directory filtered by extension.
+        
+        Args:
+            directory: Remote directory path to list
+            extension: File extension to filter by
+            
+        Returns:
+            List of filenames matching extension
+        """
         command = [
             "curl",
             "--ftp-pasv",
@@ -32,6 +52,16 @@ class FileClient:
         return filtered_files
 
     def download_file(self, remote_path: str, local_path: str, verbose=True):
+        """Download file from printer to local system.
+        
+        Args:
+            remote_path: Path to file on printer
+            local_path: Local directory to save file
+            verbose: Whether to print download progress
+            
+        Returns:
+            True if download successful, False otherwise
+        """
         if not os.path.exists(local_path):
             os.makedirs(local_path)
 

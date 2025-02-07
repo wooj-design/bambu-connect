@@ -6,13 +6,29 @@ import re
 
 
 class ExecuteClient:
+    """Client for sending commands to Bambu printer via MQTT.
+    
+    Handles G-code execution, print jobs, and printer information requests.
+    """
     def __init__(self, hostname: str, access_code: str, serial: str):
+        """Initialize execute client with connection details.
+        
+        Args:
+            hostname: Printer's IP address or hostname
+            access_code: Printer's access code for authentication
+            serial: Printer's serial number
+        """
         self.hostname = hostname
         self.access_code = access_code
         self.serial = serial
         self.client = self.__setup_mqtt_client()
 
     def __setup_mqtt_client(self):
+        """Configure and return MQTT client with security settings.
+        
+        Returns:
+            Configured MQTT client instance
+        """
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
         client.username_pw_set("bblp", self.access_code)
         client.tls_set(tls_version=ssl.PROTOCOL_TLS, cert_reqs=ssl.CERT_NONE)
@@ -21,9 +37,15 @@ class ExecuteClient:
         return client
 
     def disconnect(self):
+        """Disconnect from MQTT broker."""
         self.client.disconnect()
 
     def send_command(self, payload):
+        """Send command payload to printer.
+        
+        Args:
+            payload: Command data as dict or JSON string
+        """
         if isinstance(payload, dict):
             payload = json.dumps(payload)
         self.client.loop_start()
@@ -31,6 +53,11 @@ class ExecuteClient:
         self.client.loop_stop()
 
     def send_gcode(self, gcode):
+        """Send G-code command to printer.
+        
+        Args:
+            gcode: G-code command string
+        """
         payload = {
             "print": {
                 "command": "gcode_line",
@@ -42,8 +69,8 @@ class ExecuteClient:
         payload_json = json.dumps(payload)
         self.send_command(payload_json)
 
-    # this dumps all the printer stats, for minor print updates the printer will send them automatically.
     def dump_info(self):
+        """Request full printer status dump. For minor print updates the printer will send them automatically."""
         payload = {
             "pushing": {
                 "sequence_id": 1,
@@ -55,8 +82,14 @@ class ExecuteClient:
         print(f"DEBUG: Sending info dump -> {payload_json}")  # Debug print
         self.send_command(payload_json)
 
-    # when using this, choose the send to printer option in bambu or cura slicer. Provide the file name (no path)
     def start_print(self, file):
+        """Start printing specified file.
+        
+        File must be pre-loaded using Bambu or Cura slicer.
+        
+        Args:
+            file: Filename to print (without path)
+        """
         payload = json.dumps(
             {
                 "print": {
