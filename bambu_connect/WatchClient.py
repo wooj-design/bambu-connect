@@ -1,82 +1,49 @@
 from .utils.models import PrinterStatus
 import json
-import ssl
-from typing import Any, Callable, Dict, Optional
-
-import paho.mqtt.client as mqtt
-
+from typing import Optional, Callable
 
 class WatchClient:
-    """Client for monitoring printer status via MQTT connection.
-   
-    Maintains connection to printer and processes status updates through callbacks.
-    """
-    def __init__(self, hostname: str, access_code: str, serial: str):
-        """Initialize watch client with connection details.
-       
+    """Client for monitoring printer status."""
+    
+    def __init__(self, hostname: str, access_code: str, serial: str, mqtt_client=None):
+        """Initialize watch client.
+        
         Args:
             hostname: Printer's IP address or hostname
-            access_code: Printer's access code for authentication  
+            access_code: Printer's access code
             serial: Printer's serial number
+            mqtt_client: Optional shared MQTT client instance
         """
         self.hostname = hostname
         self.access_code = access_code
         self.serial = serial
-        self.client = self.__setup_mqtt_client()
+        self.client = mqtt_client  # Use shared client if provided
         self.values = {}
         self.printerStatus = None
         self.message_callback = None
+        self.on_connect_callback = None
 
-    def __setup_mqtt_client(self) -> mqtt.Client:
-        """Configure and return MQTT client with security settings.
+    def start(self, message_callback: Optional[Callable[[PrinterStatus], None]] = None,
+              on_connect_callback: Optional[Callable[[], None]] = None):
+        """Start monitoring printer status."""
+        if not self.client:
+            raise RuntimeError("No MQTT client available")
+            
+        self.message_callback = message_callback
+        self.on_connect_callback = on_connect_callback
         
-        Returns:
-            Configured MQTT client instance
-        """
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
-        client.username_pw_set("bblp", self.access_code)
-        client.tls_set(tls_version=ssl.PROTOCOL_TLS, cert_reqs=ssl.CERT_NONE)
-        client.tls_insecure_set(True)
-        client.on_connect = self.on_connect
-        client.on_message = self.on_message
-        return client
-
-    def on_connect(self, client: mqtt.Client, userdata: Any, flags: Any, rc: int):
-        def on_connect(self, client: mqtt.Client, userdata: Any, flags: Any, rc: int):
-        """Callback for when client connects to MQTT broker.
+        # Subscribe to printer status topic
+        self.client.subscribe(f"device/{self.serial}/report")
+        self.client.on_message = self.on_message
         
-        Subscribes to printer status topic and triggers connect callback if set.
-        
-        Args:
-            client: MQTT client instance
-            userdata: User-defined data
-            flags: Connection flags
-            rc: Connection result code
-        """
-        client.subscribe(f"device/{self.serial}/report")
         if self.on_connect_callback:
             self.on_connect_callback()
 
-    def start(
-        self,
-        message_callback: Optional[Callable[[PrinterStatus], None]] = None,
-        on_connect_callback: Optional[Callable[[], None]] = None,
-    ):
-        """Start monitoring printer status.
-        
-        Args:
-            message_callback: Handler for printer status updates
-            on_connect_callback: Handler for successful connection
-        """
-        self.message_callback = message_callback
-        self.on_connect_callback = on_connect_callback
-        self.client.connect(self.hostname, 8883, 60)
-        self.client.loop_start()
-
     def stop(self):
-        """Stop monitoring and disconnect from printer."""
-        self.client.loop_stop()
-        self.client.disconnect()
+        """Stop monitoring."""
+        if self.client:
+            self.client.unsubscribe(f"device/{self.serial}/report")
+
 
     def on_message(self, client, userdata, msg):
         """Process incoming printer status messages.

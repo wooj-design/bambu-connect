@@ -1,63 +1,35 @@
-import paho.mqtt.client as mqtt
-import ssl
 import json
-import subprocess
-import re
-
+from typing import Optional
 
 class ExecuteClient:
-    """Client for sending commands to Bambu printer via MQTT.
+    """Client for sending commands to Bambu printer."""
     
-    Handles G-code execution, print jobs, and printer information requests.
-    """
-    def __init__(self, hostname: str, access_code: str, serial: str):
-        """Initialize execute client with connection details.
+    def __init__(self, hostname: str, access_code: str, serial: str, mqtt_client=None):
+        """Initialize execute client.
         
         Args:
             hostname: Printer's IP address or hostname
-            access_code: Printer's access code for authentication
+            access_code: Printer's access code
             serial: Printer's serial number
+            mqtt_client: Optional shared MQTT client instance
         """
         self.hostname = hostname
         self.access_code = access_code
         self.serial = serial
-        self.client = self.__setup_mqtt_client()
-
-    def __setup_mqtt_client(self):
-        """Configure and return MQTT client with security settings.
-        
-        Returns:
-            Configured MQTT client instance
-        """
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
-        client.username_pw_set("bblp", self.access_code)
-        client.tls_set(tls_version=ssl.PROTOCOL_TLS, cert_reqs=ssl.CERT_NONE)
-        client.tls_insecure_set(True)
-        client.connect(self.hostname, 8883, 60)
-        return client
-
-    def disconnect(self):
-        """Disconnect from MQTT broker."""
-        self.client.disconnect()
+        self.client = mqtt_client  # Use shared client if provided
 
     def send_command(self, payload):
-        """Send command payload to printer.
-        
-        Args:
-            payload: Command data as dict or JSON string
-        """
+        """Send command payload to printer."""
+        if not self.client:
+            raise RuntimeError("No MQTT client available")
+            
         if isinstance(payload, dict):
             payload = json.dumps(payload)
-        self.client.loop_start()
+            
         self.client.publish(f"device/{self.serial}/request", payload)
-        self.client.loop_stop()
 
     def send_gcode(self, gcode):
-        """Send G-code command to printer.
-        
-        Args:
-            gcode: G-code command string
-        """
+        """Send G-code command to printer."""
         payload = {
             "print": {
                 "command": "gcode_line",
@@ -66,8 +38,7 @@ class ExecuteClient:
             },
             "user_id": "1234567890"
         }
-        payload_json = json.dumps(payload)
-        self.send_command(payload_json)
+        self.send_command(payload)
 
     def dump_info(self):
         """Request full printer status dump. For minor print updates the printer will send them automatically."""

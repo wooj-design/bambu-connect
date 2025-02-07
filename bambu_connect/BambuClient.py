@@ -1,24 +1,88 @@
+import paho.mqtt.client as mqtt
+import ssl
+import time
+from typing import Optional, Callable
 from .CameraClient import CameraClient
 from .WatchClient import WatchClient
 from .ExecuteClient import ExecuteClient
 from .FileClient import FileClient
 from .utils.models import PrinterStatus
-from typing import Callable, Dict, Optional, Any
-
 
 class BambuClient:
-    """Main client interface for Bambu printer control.
+    """Main client interface for Bambu printer control."""
     
-    Provides unified access to camera, monitoring, execution and file operations.
-    """
     def __init__(self, hostname: str, access_code: str, serial: str):
+        """Initialize the BambuClient with shared MQTT connection.
+        
+        Args:
+            hostname: Printer's IP address or hostname
+            access_code: Printer's access code for authentication
+            serial: Printer's serial number
+        """
+        self.hostname = hostname
+        self.access_code = access_code
+        self.serial = serial
+        self.connected = False
+        
+        # Create shared MQTT client
+        self.mqtt_client = self._setup_mqtt_client()
+        
+        # Initialize sub-clients with shared MQTT client
         self.cameraClient = CameraClient(hostname, access_code)
-        self.watchClient = WatchClient(hostname, access_code, serial)
-        self.executeClient = ExecuteClient(hostname, access_code, serial)
+        self.watchClient = WatchClient(hostname, access_code, serial, self.mqtt_client)
+        self.executeClient = ExecuteClient(hostname, access_code, serial, self.mqtt_client)
         self.fileClient = FileClient(hostname, access_code, serial)
 
+    def _setup_mqtt_client(self) -> mqtt.Client:
+        """Configure and connect shared MQTT client."""
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+        client.username_pw_set("bblp", self.access_code)
+        client.tls_set(tls_version=ssl.PROTOCOL_TLS, cert_reqs=ssl.CERT_NONE)
+        client.tls_insecure_set(True)
+        
+        # Set up callbacks
+        client.on_connect = self._on_connect
+        client.on_disconnect = self._on_disconnect
+        
+        try:
+            client.connect(self.hostname, 8883, 60)
+            client.loop_start()
+            
+            # Wait for connection
+            timeout = 10
+            start_time = time.time()
+            while not self.connected and (time.time() - start_time) < timeout:
+                time.sleep(0.1)
+            
+            if not self.connected:
+                raise ConnectionError("Failed to connect to printer")
+            
+            return client
+            
+        except Exception as e:
+            if client:
+                client.loop_stop()
+                client.disconnect()
+            raise ConnectionError(f"Failed to connect to printer: {str(e)}")
+
+    def _on_connect(self, client, userdata, flags, rc):
+        """Handle successful connection."""
+        if rc == 0:
+            self.connected = True
+        else:
+            print(f"Connection failed with code {rc}")
+            self.connected = False
+
+    def _on_disconnect(self, client, userdata, rc):
+        """Handle disconnection."""
+        self.connected = False
+        print("Disconnected from printer")
+
     def __del__(self):
-        self.executeClient.disconnect()
+        """Cleanup on deletion."""
+        if hasattr(self, 'mqtt_client'):
+            self.mqtt_client.loop_stop()
+            self.mqtt_client.disconnect()
 
     ############# Camera Wrappers #############
     def start_camera_stream(self, img_callback):
