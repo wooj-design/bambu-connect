@@ -94,6 +94,16 @@ class UpgradeState:
     new_version_state: Optional[int] = None
     new_ver_list: Optional[List[Any]] = None
     cur_state_code: Optional[int] = None
+    idx2: Optional[Any] = None  # Add this field
+    
+    def __init__(self, **data):
+        # Initialize known fields
+        for field in self.__annotations__:
+            setattr(self, field, data.get(field))
+        
+        # Store any unknown fields in a dict
+        self.extra_fields = {k: v for k, v in data.items() 
+                           if k not in self.__annotations__}
 
 
 @dataclass
@@ -154,6 +164,59 @@ class PrinterStatus:
     command: Optional[str] = None
     msg: Optional[int] = None
     sequence_id: Optional[str] = None
+
+    def __init__(self, **data):
+        # Handle known nested objects first
+        if "upload" in data:
+            self.upload = Upload(**data["upload"])
+        else:
+            self.upload = None
+            
+        if "online" in data:
+            self.online = Online(**data["online"])
+        else:
+            self.online = None
+            
+        if "ams" in data:
+            self.ams = AMS(**data["ams"])
+        else:
+            self.ams = None
+            
+        if "ipcam" in data:
+            self.ipcam = IPCam(**data["ipcam"])
+        else:
+            self.ipcam = None
+            
+        if "vt_tray" in data:
+            self.vt_tray = VTTray(**data["vt_tray"])
+        else:
+            self.vt_tray = None
+            
+        if "lights_report" in data:
+            self.lights_report = [LightsReport(**lr) for lr in data.get("lights_report", [])]
+        else:
+            self.lights_report = []
+            
+        if "upgrade_state" in data:
+            try:
+                self.upgrade_state = UpgradeState(**data["upgrade_state"])
+            except Exception as e:
+                print(f"Warning: Failed to parse upgrade_state: {e}")
+                self.upgrade_state = None
+        else:
+            self.upgrade_state = None
+        
+        # Handle all other fields
+        for field in self.__annotations__:
+            if field not in ['upload', 'online', 'ams', 'ipcam', 'vt_tray', 
+                           'lights_report', 'upgrade_state']:
+                setattr(self, field, data.get(field))
+        
+        # Store any unknown fields
+        self.extra_fields = {k: v for k, v in data.items() 
+                           if k not in self.__annotations__ and 
+                           k not in ['upload', 'online', 'ams', 'ipcam', 'vt_tray', 
+                                   'lights_report', 'upgrade_state']}
 
     def __init__(self, **data):
         self.upload = Upload(**data["upload"]) if "upload" in data else None

@@ -46,24 +46,25 @@ class WatchClient:
 
 
     def on_message(self, client, userdata, msg):
-        """Process incoming printer status messages.
-        
-        Updates internal state and triggers callback if set.
-        
-        Args:
-            client: MQTT client instance  
-            userdata: User-defined data
-            msg: MQTT message payload
-        """
-        doc = json.loads(msg.payload)
+        """Process incoming printer status messages."""
         try:
+            doc = json.loads(msg.payload)
             if not doc:
                 return
 
-            self.values = dict(self.values, **doc["print"])
-            self.printerStatus = PrinterStatus(**self.values)
+            if "print" in doc:
+                self.values.update(doc["print"])
+            else:
+                self.values.update(doc)
 
-            if self.message_callback:
-                self.message_callback(self.printerStatus)
-        except KeyError:
-            pass
+            try:
+                self.printerStatus = PrinterStatus(**self.values)
+                if self.message_callback:
+                    self.message_callback(self.printerStatus)
+            except Exception as e:
+                print(f"Warning: Failed to parse printer status: {e}")
+                print(f"Raw values: {json.dumps(self.values, indent=2)}")
+        except json.JSONDecodeError:
+            print("Warning: Failed to decode message payload")
+        except Exception as e:
+            print(f"Warning: Error processing message: {e}")
