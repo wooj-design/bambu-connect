@@ -106,14 +106,49 @@ class BambuClient:
         self.watchClient.stop()
 
     ############# ExecuteClient Wrappers #############
-    def send_gcode(self, gcode):
+    def set_chamber_light(self, on: bool):
+        """Control the chamber light."""
+        self.executeClient.set_chamber_light(on)
+
+    def set_print_speed(self, speed_profile: str):
+        """Set the print speed profile (silent/normal/sport/ludicrous)."""
+        self.executeClient.set_print_speed(speed_profile)
+
+    def pause_print(self):
+        """Pause the current print."""
+        self.executeClient.pause_print()
+
+    def resume_print(self):
+        """Resume the paused print."""
+        self.executeClient.resume_print()
+
+    def stop_print(self):
+        """Stop the current print."""
+        self.executeClient.stop_print()
+
+    def send_gcode(self, gcode: str):
+        """Send G-code command to printer."""
         self.executeClient.send_gcode(gcode)
 
+    def start_print(self, file: str, use_ams: bool = False, enable_timelapse: bool = False):
+        """Start printing specified file."""
+        self.executeClient.start_print(file, use_ams, enable_timelapse)
+
+    def skip_objects(self, object_list: list):
+        """Skip specified objects in current print."""
+        self.executeClient.skip_objects(object_list)
+
+    def get_version(self):
+        """Request printer version information."""
+        self.executeClient.get_version()
+
     def dump_info(self):
+        """Request full printer status dump."""
         self.executeClient.dump_info()
 
-    def start_print(self, file):
-        self.executeClient.start_print(file)
+    def start_monitoring(self):
+        """Start continuous status monitoring."""
+        self.executeClient.start_monitoring()
 
     ############# FileClient Wrappers #############
     def get_files(self, path="/", extension=".3mf"):
