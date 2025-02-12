@@ -1,6 +1,8 @@
 from .utils.models import PrinterStatus
 import json
+import requests
 from typing import Optional, Callable
+from .utils.error_codes import PRINT_ERROR_ERRORS, HMS_ERRORS
 
 class WatchClient:
     """Client for monitoring printer status."""
@@ -52,18 +54,15 @@ class WatchClient:
             if not doc:
                 return
 
-            if "print" in doc:
-                self.values.update(doc["print"])
-            else:
-                self.values.update(doc)
+            self.values.update(doc.get("print", doc))  # Merge the print data if it exists
 
-            try:
-                self.printerStatus = PrinterStatus(**self.values)
-                if self.message_callback:
-                    self.message_callback(self.printerStatus)
-            except Exception as e:
-                print(f"Warning: Failed to parse printer status: {e}")
-                print(f"Raw values: {json.dumps(self.values, indent=2)}")
+            # Create PrinterStatus instance (this automatically populates error_description)
+            self.printerStatus = PrinterStatus(**self.values)
+
+            # Pass the updated PrinterStatus object to message_callback
+            if self.message_callback:
+                self.message_callback(self.printerStatus)
+
         except json.JSONDecodeError:
             print("Warning: Failed to decode message payload")
         except Exception as e:

@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 import json
+import requests
+from .error_codes import PRINT_ERROR_ERRORS, HMS_ERRORS
 
 
 @dataclass
@@ -127,6 +129,7 @@ class PrinterStatus:
     spd_mag: Optional[int] = None
     spd_lvl: Optional[int] = None
     print_error: Optional[int] = None
+    error_description: Optional[str] = None
     lifecycle: Optional[str] = None
     wifi_signal: Optional[str] = None
     gcode_state: Optional[str] = None
@@ -275,3 +278,32 @@ class PrinterStatus:
         self.command = data.get("command")
         self.msg = data.get("msg")
         self.sequence_id = data.get("sequence_id")
+        self.error_description = self.get_error_description(self.print_error) if self.print_error else "No error"
+
+    @staticmethod
+    def get_error_description(error_code: int, language: str = "en") -> str:
+        """Fetch the human-readable error description for a given error code."""
+        hex_code = f"{error_code:08X}"  # Convert int to 8-character hex
+
+        # First, check local dictionaries
+        if hex_code in PRINT_ERROR_ERRORS:
+            return PRINT_ERROR_ERRORS[hex_code]
+
+        if hex_code in HMS_ERRORS:
+            return HMS_ERRORS[hex_code]
+
+        # If not found locally, fetch from Bambu API
+        api_url = f"https://e.bambulab.com/query.php?lang={language}&e={hex_code}"
+        try:
+            response = requests.get(api_url, timeout=5)
+            response.raise_for_status()  # Raise an error for non-200 responses
+            json_data = response.json()
+
+            if json_data.get("result") == 0:
+                for entry in json_data["data"].get("device_error", {}).get(language, []):
+                    if entry["ecode"] == hex_code and entry.get("intro"):
+                        return entry["intro"]
+        except requests.exceptions.RequestException:
+            pass  # Avoid throwing an exception—fallback to "Unknown error"
+
+        return "Unknown error"
