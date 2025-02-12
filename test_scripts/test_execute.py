@@ -2,9 +2,9 @@ from bambu_connect import BambuClient
 import time
 
 # Printer configuration
-hostname = "192.168.0.183"
-access_code = "21009499"
-serial = "01S00C450900529"
+hostname=os.getenv('HOSTNAME'),
+access_code=os.getenv('ACCESS_CODE'),
+serial=os.getenv('SERIAL')
 
 def print_status_callback(status):
     """Callback to display printer status updates"""

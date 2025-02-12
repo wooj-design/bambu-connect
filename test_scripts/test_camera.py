@@ -3,9 +3,9 @@ import time
 import os
 
 # Printer configuration
-hostname = "192.168.0.183"
-access_code = "21009499"
-serial = "01S00C450900529"
+hostname=os.getenv('HOSTNAME'),
+access_code=os.getenv('ACCESS_CODE'),
+serial=os.getenv('SERIAL')
 
 def save_frame(img_data):
     """Save received frame to file"""
